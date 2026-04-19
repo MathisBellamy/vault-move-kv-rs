@@ -3,7 +3,6 @@ use lib::move_secrets;
 mod lib;
 
 fn main() {
-
     let cmd: clap::ArgMatches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about("Move secret(s) from one path to another in Vault")
@@ -38,7 +37,7 @@ fn main() {
                 .required(true),
         )
         .get_matches();
-    
+
     move_secrets(
         cmd.get_one::<String>("mount").unwrap(),
         cmd.get_one::<String>("source_path").unwrap(),
