@@ -1,7 +1,11 @@
+use dict::Dict;
 use std::collections::HashMap;
 use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
 use vaultrs::error::ClientError;
 use vaultrs::kv2;
+
+mod utils;
+use utils::*;
 
 fn authenticator() -> Result<VaultClient, ClientError> {
     let vault_url: String = std::env::var("VAULT_ADDR").unwrap();
@@ -99,4 +103,16 @@ pub async fn move_secrets(mount: &str, source_path: &str, dest_path: &str, destr
             destroy_secret(&vault_client, mount, &secret).await;
         }
     }
+}
+
+#[tokio::main]
+pub async fn backup_secrets(mount: &str, password: &str, source_path: &str) {
+    let vault_client: VaultClient = authenticator()
+        .unwrap_or_else(|e: ClientError| panic!("Cannot authenticate to Vault : {e}"));
+
+    let my_dict = list_folder(&vault_client, mount, source_path)
+        .await
+        .unwrap();
+
+    println!("{:?}", my_dict);
 }
