@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
+use vaultrs::error::ClientError;
 use vaultrs::kv2;
 
-fn authenticator() -> VaultClient {
+fn authenticator() -> Result<VaultClient, ClientError> {
     let vault_url: String = std::env::var("VAULT_ADDR").unwrap();
     let vault_token: String = std::env::var("VAULT_TOKEN").unwrap();
 
@@ -12,7 +13,9 @@ fn authenticator() -> VaultClient {
         .build()
         .unwrap();
 
-    VaultClient::new(settings).unwrap()
+    let vault_client = VaultClient::new(settings)?;
+
+    Ok(vault_client)
 }
 
 async fn move_folder(
@@ -72,8 +75,10 @@ async fn destroy_secret(vault_client: &VaultClient, mount: &str, path: &str) {
 
 #[tokio::main]
 pub async fn move_secrets(mount: &str, source_path: &str, dest_path: &str, destroy: &bool) {
-    let vault_client: VaultClient = authenticator();
-    let mut moved_secrets_list: Vec<String> = Vec::new();
+    let vault_client: VaultClient = authenticator()
+        .unwrap_or_else(|e: ClientError| panic!("Cannot authenticate to Vault : {e}"));
+
+    let mut moved_secrets_list: Vec<String> = vec![];
 
     assert_ne!(
         source_path, dest_path,
