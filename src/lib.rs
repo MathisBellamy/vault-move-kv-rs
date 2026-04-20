@@ -22,7 +22,7 @@ async fn move_folder(
     dest_path: &str,
 ) -> Vec<String> {
     let folder_kv_list: Vec<String> = kv2::list(vault_client, mount, source_path).await.unwrap();
-    let mut moved_secrets: Vec<String> = Vec::new();
+    let mut moved_secrets: Vec<String> = vec![];
 
     for kv in folder_kv_list {
         if kv.ends_with('/') {
@@ -73,7 +73,7 @@ async fn destroy_secret(vault_client: &VaultClient, mount: &str, path: &str) {
 #[tokio::main]
 pub async fn move_secrets(mount: &str, source_path: &str, dest_path: &str, destroy: &bool) {
     let vault_client: VaultClient = authenticator();
-    let mut moved_secrets_list: Vec<String> = Vec::new();
+    let mut moved_secrets_list: Vec<String> = vec![];
 
     assert_ne!(
         source_path, dest_path,

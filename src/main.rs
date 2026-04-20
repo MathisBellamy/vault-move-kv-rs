@@ -1,6 +1,5 @@
 use clap::{Arg, Command};
-use lib::move_secrets;
-mod lib;
+use move_kv::move_secrets;
 
 fn main() {
     let cmd: clap::ArgMatches = Command::new(env!("CARGO_PKG_NAME"))
