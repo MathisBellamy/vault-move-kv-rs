@@ -1,4 +1,6 @@
-use clap::{Arg, Args, Command, Parser, Subcommand};
+use clap::{Parser, Subcommand};
+use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
+use vaultrs::error::ClientError;
 
 use vault_move_kv_rs::*;
 
@@ -28,14 +30,45 @@ enum Commands {
         #[arg(long, short = 'm', help = "Mount", required = true)]
         mount: String,
 
-        #[arg(long, short = 'p', help = "Password to encrypt data", required = true)]
-        password: String,
+        #[arg(long, short = 'f', help = "File to store data", required = true)]
+        file: String,
 
         source_path: String,
     },
+    Destroy {
+        #[arg(long, short = 'm', help = "Mount", required = true)]
+        mount: String,
+
+        source_path: String,
+    },
+    Restore {
+        #[arg(long, short = 'm', help = "Mount", required = true)]
+        mount: String,
+
+        #[arg(long, short = 'f', help = "File to store data", required = true)]
+        file: String,
+    },
+}
+
+fn authenticator() -> Result<VaultClient, ClientError> {
+    let vault_url: String = std::env::var("VAULT_ADDR").unwrap();
+    let vault_token: String = std::env::var("VAULT_TOKEN").unwrap();
+
+    let settings = VaultClientSettingsBuilder::default()
+        .address(vault_url)
+        .token(vault_token)
+        .build()
+        .unwrap();
+
+    let vault_client = VaultClient::new(settings)?;
+
+    Ok(vault_client)
 }
 
 fn main() {
+    let vault_client: VaultClient = authenticator()
+        .unwrap_or_else(|e: ClientError| panic!("Cannot authenticate to Vault : {e}"));
+
     let args = Cli::parse();
 
     match &args.command {
@@ -45,61 +78,23 @@ fn main() {
             source_path,
             dest_path,
         }) => {
-            move_secrets(mount, source_path, dest_path, destroy);
+            move_secrets(&vault_client, mount, source_path, dest_path, destroy);
         }
         Some(Commands::Backup {
             mount,
-            password,
+            file,
             source_path,
         }) => {
-            println!("Backup");
-            backup_secrets(mount, password, source_path);
+            backup_secrets(&vault_client, mount, file, source_path);
+        }
+        Some(Commands::Destroy { mount, source_path }) => {
+            destroy_secrets(&vault_client, mount, source_path);
+        }
+        Some(Commands::Restore { mount, file }) => {
+            restore_secrets(&vault_client, mount, file);
         }
         None => {
             println!("None");
         }
     }
-
-    // let cmd: clap::ArgMatches = Command::new(env!("CARGO_PKG_NAME"))
-    //     .version(env!("CARGO_PKG_VERSION"))
-    //     .about("Vault CLI")
-    //     .subcommand()
-    //     .arg(
-    //         Arg::new("mount")
-    //             .short('m')
-    //             .long("mount")
-    //             .value_name("VAULT_MOUNT")
-    //             .help("Mount")
-    //             .num_args(1)
-    //             .required(true),
-    //     )
-    //     .arg(
-    //         Arg::new("destroy")
-    //             .short('d')
-    //             .long("destroy")
-    //             .value_name("VAULT_DESTROY")
-    //             .action(clap::ArgAction::SetTrue)
-    //             .help("If you want to destroy moved secrets")
-    //             .required(false),
-    //     )
-    //     .arg(
-    //         Arg::new("source_path")
-    //             .value_name("VAULT_SOURCE_PATH")
-    //             .help("Source path")
-    //             .required(true),
-    //     )
-    //     .arg(
-    //         Arg::new("dest_path")
-    //             .value_name("VAULT_DEST_PATH")
-    //             .help("Destination path")
-    //             .required(true),
-    //     )
-    //     .get_matches();
-
-    // move_secrets(
-    //     cmd.get_one::<String>("mount").unwrap(),
-    //     cmd.get_one::<String>("source_path").unwrap(),
-    //     cmd.get_one::<String>("dest_path").unwrap(),
-    //     cmd.get_one::<bool>("destroy").unwrap(),
-    // )
 }
