@@ -3,39 +3,6 @@ use std::error::Error;
 use vaultrs::client::VaultClient;
 use vaultrs::kv2;
 
-pub async fn move_folder(
-    vault_client: &VaultClient,
-    mount: &str,
-    source_path: &str,
-    dest_path: &str,
-) -> Vec<String> {
-    let folder_kv_list: Vec<String> = kv2::list(vault_client, mount, source_path).await.unwrap();
-    let mut moved_secrets: Vec<String> = Vec::new();
-
-    for kv in folder_kv_list {
-        if kv.ends_with('/') {
-            let mut sub_moved = Box::pin(move_folder(
-                vault_client,
-                mount,
-                &(source_path.to_owned() + &kv),
-                &(dest_path.to_owned() + &kv),
-            ))
-            .await;
-            moved_secrets.append(&mut sub_moved);
-        } else {
-            move_secret(
-                vault_client,
-                mount,
-                &(source_path.to_owned() + &kv),
-                &(dest_path.to_owned() + &kv),
-            )
-            .await;
-            moved_secrets.push(source_path.to_owned() + &kv);
-        }
-    }
-    moved_secrets
-}
-
 pub async fn list_secrets(
     vault_client: &VaultClient,
     mount: &str,
@@ -64,22 +31,6 @@ pub async fn list_secrets(
         }
     }
     Ok(all_data)
-}
-
-pub async fn move_secret(
-    vault_client: &VaultClient,
-    mount: &str,
-    source_path: &str,
-    dest_path: &str,
-) -> Vec<String> {
-    let secret: HashMap<String, String> =
-        kv2::read(vault_client, mount, source_path).await.unwrap();
-
-    kv2::set(vault_client, mount, dest_path, &secret)
-        .await
-        .unwrap_or_else(|e| panic!("Cannot create secret : {e}"));
-
-    vec![String::from(source_path)]
 }
 
 pub async fn destroy_secret(

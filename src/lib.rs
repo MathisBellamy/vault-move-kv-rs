@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use vaultrs::client::VaultClient;
+use vaultrs::kv2;
 
 mod utils;
 use utils::*;
@@ -20,17 +21,25 @@ pub async fn move_secrets(
         "Source & destination paths must be different"
     );
 
-    if source_path.ends_with("/") {
-        if dest_path.ends_with("/") {
-            moved_secrets_list = move_folder(vault_client, mount, source_path, dest_path).await;
-        } else {
-            panic!("If you want to move a folder, destination path must ends with '/'");
-        }
-    } else {
-        moved_secrets_list = move_secret(vault_client, mount, source_path, dest_path).await;
+    if source_path.ends_with('/') && !dest_path.ends_with('/') {
+        panic!("If you want to move a folder, destination path must ends with '/'");
     }
 
-    // Destroy moved secrets
+    let all_secrets: HashMap<String, HashMap<String, String>> =
+        list_secrets(vault_client, mount, source_path)
+            .await
+            .unwrap_or_else(|e| panic!("Cannot list folder {source_path} : {e}"));
+
+    for (secret_path, secret_data) in all_secrets.into_iter() {
+        let kv_path_without_source: String = secret_path.replacen(source_path, "", 1);
+        let dest_path: String = format!("{}{}", dest_path, kv_path_without_source);
+
+        kv2::set(vault_client, mount, dest_path.as_str(), &secret_data)
+            .await
+            .unwrap_or_else(|e| panic!("Cannot create secret {dest_path} : {e}"));
+        moved_secrets_list.push(secret_path);
+    }
+
     if *destroy && !moved_secrets_list.is_empty() {
         for secret in moved_secrets_list {
             destroy_secret(vault_client, mount, &secret)
@@ -77,4 +86,25 @@ pub async fn destroy_secrets(vault_client: &VaultClient, mount: &str, source_pat
 }
 
 #[tokio::main]
-pub async fn restore_secrets(vault_client: &VaultClient, mount: &str, file: &str) {}
+pub async fn restore_secrets(vault_client: &VaultClient, mount: &str, file: &str) {
+    let f = File::open(file).unwrap_or_else(|e| panic!("Cannot open file {file} : {e}"));
+
+    let json_formatted_content: serde_json::Value =
+        serde_json::from_reader(f).expect("JSON was not formatted correctly");
+
+    match json_formatted_content.as_object() {
+        Some(secrets) => {
+            for (secret_path, secret_data_obj) in secrets {
+                match secret_data_obj.as_object() {
+                    Some(secret_data) => {
+                        kv2::set(vault_client, mount, secret_path, secret_data)
+                            .await
+                            .unwrap_or_else(|e| panic!("Cannot create secret {secret_path} : {e}"));
+                    }
+                    None => println!("{secret_path} is not a JSON object"),
+                }
+            }
+        }
+        None => println!("File is not well JSON formatted"),
+    }
+}
