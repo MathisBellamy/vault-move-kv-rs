@@ -10,11 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Get package name
-      run: echo "CARGO_PKG_NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')"
     - name: Build
       run: cargo build --release
     - name: Release
       uses: softprops/action-gh-release@v3
       with:
-        files: target/release/${{ env.CARGO_PKG_NAME }}
+        files: target/release/vault-move-kv-rs
+        token: '${{ secrets.INTEGRATION_TOKEN }}'
