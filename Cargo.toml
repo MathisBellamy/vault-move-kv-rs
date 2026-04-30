@@ -9,3 +9,8 @@ dict = "0.1.5"
 serde_json = "1.0.149"
 tokio = { version = "1.52.0", features = ["rt-multi-thread", "macros"] }
 vaultrs = "^0.8.0"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
