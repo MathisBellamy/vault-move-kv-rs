@@ -9,11 +9,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --release
-    - name: Release
-      uses: softprops/action-gh-release@v3
-      with:
-        files: target/release/vault-move-kv-rs
-        token: '${{ secrets.INTEGRATION_TOKEN }}'
+      - uses: actions/checkout@v4
+      - uses: https://github.com/dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+      - name: Install tools
+        run: apt update && apt -y install mingw-w64
+      - name: Build Linux
+        run: cargo build --release
+      - name: Build Windows
+        run: cargo build --target x86_64-pc-windows-gnu --release
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |-
+            target/release/vault-move-kv-rs
+            target/x86_64-pc-windows-gnu/release/vault-move-kv-rs.exe
+          token: '${{ secrets.INTEGRATION_TOKEN }}'
